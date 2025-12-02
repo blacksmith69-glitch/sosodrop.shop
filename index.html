@@ -1,0 +1,404 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Sosovalue Shop</title>
+  <meta name="description" content="Sosovalue Shop — Referrals & Rebate EXP" />
+  <style>
+    :root{
+      --bg:#000; --card:#0f0f10; --muted:#9aa3b2; --accent:#08f; --glass:rgba(255,255,255,0.03);
+      --radius:14px; --maxw:1100px;
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{margin:0;font-family:Inter,system-ui,Segoe UI,Roboto,Arial; background:var(--bg); color:#fff;-webkit-font-smoothing:antialiased}
+
+    /* Loader */
+    #loader{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:var(--bg);z-index:60}
+    .logo{font-weight:800;letter-spacing:6px;font-size:28px}
+    .pulse{animation:pulse 1.4s infinite}
+    @keyframes pulse{0%{opacity:1}50%{opacity:.4}100%{opacity:1}}
+
+    /* Layout */
+    header{position:fixed;top:0;left:0;right:0;height:72px;padding:12px 24px;display:flex;align-items:center;justify-content:space-between;background:linear-gradient(180deg,rgba(255,255,255,0.02),transparent);backdrop-filter:blur(4px);z-index:40}
+    .brand{display:flex;gap:12px;align-items:center}
+    .brand .logo-mini{width:44px;height:44;border-radius:10px;background:linear-gradient(90deg,#0ff 0%, #08f 100%);display:inline-flex;align-items:center;justify-content:center;color:#000;font-weight:800}
+    nav a{color:#fff;margin-left:14px;text-decoration:none;font-weight:600}
+
+    .container{max-width:var(--maxw);margin:110px auto;padding:24px}
+
+    .hero{display:flex;flex-direction:column;gap:18px}
+    .hero h1{font-size:40px;margin:0}
+    .hero p{margin:0;color:var(--muted)}
+    .btn{background:#fff;color:#000;padding:12px 18px;border-radius:12px;border:0;font-weight:700;cursor:pointer}
+    .ghost{background:transparent;border:1px solid rgba(255,255,255,0.06);padding:10px 14px;border-radius:12px}
+
+    .card{background:var(--card);padding:18px;border-radius:var(--radius);box-shadow:0 6px 20px rgba(0,0,0,0.6);}
+    .muted{color:var(--muted)}
+
+    /* Grid */
+    .grid{display:grid;gap:18px;margin-top:22px}
+    .grid.cols-2{grid-template-columns:1fr 380px}
+
+    /* Products */
+    .products{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px}
+    .product{background:linear-gradient(180deg,rgba(255,255,255,0.02),transparent);padding:16px;border-radius:12px}
+    .product h3{margin:0 0 6px 0}
+    .product .meta{color:var(--muted);font-size:13px}
+    .product .price{font-weight:800;margin-top:8px}
+    .product button{margin-top:12px}
+
+    /* Dashboard */
+    .dashboard{display:flex;gap:18px}
+    .balance{min-width:260px}
+    .orders{flex:1}
+
+    /* Modal */
+    .modal-backdrop{position:fixed;inset:0;background:rgba(0,0,0,0.6);display:flex;align-items:center;justify-content:center;z-index:50}
+    .modal{width:100%;max-width:520px;padding:18px;background:linear-gradient(180deg,#0b0b0b,#0e0e0e);border-radius:12px}
+    .field{margin-top:10px}
+    input[type=number],input[type=text],input[type=password],textarea{width:100%;padding:12px;border-radius:10px;border:1px solid rgba(255,255,255,0.04);background:transparent;color:#fff}
+    label{display:block;color:var(--muted);font-size:13px;margin-bottom:6px}
+
+    .orders table{width:100%;border-collapse:collapse}
+    .orders th,.orders td{padding:10px;text-align:left;border-bottom:1px solid rgba(255,255,255,0.03);font-size:14px}
+
+    footer{margin:60px 0 120px;color:var(--muted);text-align:center}
+
+    /* responsive */
+    @media (max-width:900px){.grid.cols-2{grid-template-columns:1fr}.hero h1{font-size:28px}}
+  </style>
+</head>
+<body>
+
+<!-- LOADER -->
+<div id="loader">
+  <div style="text-align:center">
+    <div class="logo pulse">S O S O V A L U E</div>
+    <div class="muted" style="margin-top:8px">Loading... ⚡</div>
+  </div>
+</div>
+
+<!-- HEADER -->
+<header>
+  <div class="brand">
+    <div class="logo-mini">SV</div>
+    <div>
+      <div style="font-weight:800">Sosovalue Shop</div>
+      <div class="muted" style="font-size:12px">Biggest Seller • Trusted</div>
+    </div>
+  </div>
+  <nav>
+    <a href="#home" onclick="showSection('home')">Home</a>
+    <a href="#dashboard" onclick="showSection('dashboard')">Dashboard</a>
+    <a href="#" id="nav-signin" onclick="openModal('login')">Sign In</a>
+    <a href="#" id="nav-signup" onclick="openModal('signup')">Sign Up</a>
+  </nav>
+</header>
+
+<main class="container" id="app">
+
+  <!-- HOME -->
+  <section id="home">
+    <div class="hero">
+      <h1>Sosovalue Shop</h1>
+      <p class="muted">Biggest Seller of Sosovalue Referrals & Rebate EXP — Fast delivery • Crypto payments</p>
+      <div style="display:flex;gap:12px;margin-top:8px">
+        <button class="btn" onclick="openModal('signup')">Sign Up</button>
+        <button class="ghost" onclick="openModal('login')">Sign In</button>
+      </div>
+    </div>
+
+    <div style="margin-top:24px" class="card">
+      <h3>About Us</h3>
+      <p class="muted">Trusted seller • Fast delivery (Referral 15–25 min, Rebate 30–45 min) • Crypto payments via OxaPay • Auto order placement</p>
+    </div>
+
+    <div class="grid cols-2">
+      <div>
+        <h3 style="margin-top:18px">Products</h3>
+        <div class="products" id="products"></div>
+      </div>
+
+      <aside class="card balance">
+        <h4>Your Balance</h4>
+        <div style="font-size:20px;font-weight:800" id="balanceDisplay">$0.00</div>
+        <div style="margin-top:10px">
+          <button class="btn" onclick="addBalanceFlow()">Add Balance</button>
+        </div>
+
+        <div style="margin-top:16px">
+          <h4 class="muted">Delivery</h4>
+          <p class="muted" style="font-size:13px">Referral starts in 15–25 minutes. Rebate EXP starts in 30–45 minutes.</p>
+        </div>
+      </aside>
+    </div>
+
+  </section>
+
+  <!-- DASHBOARD -->
+  <section id="dashboard" style="display:none">
+    <div class="grid cols-2">
+      <div>
+        <div class="card">
+          <h3>Welcome, <span id="userWelcome">Guest</span></h3>
+          <div class="muted">Balance</div>
+          <div style="font-size:28px;font-weight:800" id="dashBalance">$0.00</div>
+          <div style="margin-top:12px"><button class="btn" onclick="addBalanceFlow()">Add Balance</button></div>
+        </div>
+
+        <div style="margin-top:18px" class="card orders">
+          <h4>Order History</h4>
+          <table id="ordersTable"><thead><tr><th>ID</th><th>Product</th><th>Qty</th><th>Price</th><th>Status</th></tr></thead><tbody></tbody></table>
+        </div>
+      </div>
+
+      <aside>
+        <div class="card">
+          <h4>Quick Shop</h4>
+          <div class="products" id="productsSidebar"></div>
+        </div>
+
+        <div style="margin-top:18px" class="card">
+          <h4>Info</h4>
+          <p class="muted">All orders are charged from your USD balance. Add funds via OxaPay (you'll be redirected to the OxaPay checkout).</p>
+        </div>
+      </aside>
+    </div>
+  </section>
+
+  <footer>
+    © Sosovalue Shop — Built for cryptowithAryanog
+  </footer>
+</main>
+
+<!-- MODALS -->
+<div id="modalRoot"></div>
+
+<script>
+(() => {
+  // Products config exactly as you specified
+  const PRODUCTS = [
+    {id:'V0', title:'Sosovalue V0 Referral', pricePerUnit:2/1000, displayPrice:'$2 per 1,000', min:1000, max:100000000, unit:'referrals'},
+    {id:'V1', title:'Sosovalue V1 Referral', pricePerUnit:10/100, displayPrice:'$10 per 100', min:100, max:10000000, unit:'referrals'},
+    {id:'V2', title:'Sosovalue V2 Referral', pricePerUnit:15/100, displayPrice:'$15 per 100', min:50, max:1000000, unit:'referrals'},
+    {id:'REBATE', title:'Rebate EXP', pricePerUnit:1/1000000, displayPrice:'$1 per 1,000,000', min:1000000, max:1000000000, unit:'exp'}
+  ];
+
+  // localStorage keys
+  const LS_USERS = 'sv_users';
+  const LS_SESSION = 'sv_session';
+  const LS_ORDERS = 'sv_orders';
+
+  // util
+  const $ = sel => document.querySelector(sel);
+  const $all = sel => document.querySelectorAll(sel);
+
+  // render products
+  function renderProducts(){
+    const container = $('#products');
+    const sidebar = $('#productsSidebar');
+    container.innerHTML = '';
+    sidebar.innerHTML = '';
+    PRODUCTS.forEach(p=>{
+      const el = document.createElement('div'); el.className='product';
+      el.innerHTML = `<h3>${p.title}</h3><div class="meta">${p.displayPrice}</div><div class="meta">Min: ${p.min.toLocaleString()} • Max: ${p.max.toLocaleString()}</div><div class="price">Price calc on input</div><button class="btn" onclick="openBuy('${p.id}')">Buy</button>`;
+      container.appendChild(el);
+
+      const el2 = el.cloneNode(true);
+      el2.querySelector('button').onclick = ()=>openBuy(p.id);
+      sidebar.appendChild(el2);
+    });
+  }
+
+  // simple client auth using localStorage (no backend)
+  function getUsers(){return JSON.parse(localStorage.getItem(LS_USERS)||'[]')}
+  function saveUsers(u){localStorage.setItem(LS_USERS, JSON.stringify(u))}
+  function getSession(){return JSON.parse(localStorage.getItem(LS_SESSION)||'null')}
+  function setSession(obj){localStorage.setItem(LS_SESSION, JSON.stringify(obj))}
+  function clearSession(){localStorage.removeItem(LS_SESSION)}
+
+  // orders store
+  function getOrders(){return JSON.parse(localStorage.getItem(LS_ORDERS)||'[]')}
+  function saveOrders(list){localStorage.setItem(LS_ORDERS, JSON.stringify(list))}
+
+  // signup/login UI
+  function openModal(type){
+    const root = $('#modalRoot');
+    if(type==='signup'){
+      root.innerHTML = modalHtml('Create Account', `
+        <div class="field"><label>Username</label><input id="su_username" /></div>
+        <div class="field"><label>Password</label><input id="su_password" type="password" /></div>
+        <div class="field"><label>Confirm Password</label><input id="su_confirm" type="password" /></div>
+        <div style="margin-top:12px;display:flex;gap:8px"><button onclick="signup()" class="btn">Create Account</button><button onclick="closeModal()" class="ghost">Cancel</button></div>
+      `);
+    } else if(type==='login'){
+      root.innerHTML = modalHtml('Sign In', `
+        <div class="field"><label>Username</label><input id="li_username" /></div>
+        <div class="field"><label>Password</label><input id="li_password" type="password" /></div>
+        <div style="margin-top:12px;display:flex;gap:8px"><button onclick="login()" class="btn">Sign In</button><button onclick="closeModal()" class="ghost">Cancel</button></div>
+      `);
+    } else if(type==='buy'){
+      /* handled separately */
+    }
+  }
+
+  function modalHtml(title, inner){
+    return `<div class="modal-backdrop"><div class="modal"><h3 style=\"margin:0 0 8px 0\">${title}</h3>${inner}</div></div>`;
+  }
+
+  window.openModal = openModal; // expose for header
+  window.closeModal = ()=>{document.getElementById('modalRoot').innerHTML=''};
+
+  // signup/login logic
+  window.signup = function(){
+    const u = document.getElementById('su_username').value.trim();
+    const p = document.getElementById('su_password').value;
+    const c = document.getElementById('su_confirm').value;
+    if(!u || !p){alert('username & password required');return}
+    if(p!==c){alert('passwords do not match');return}
+    const users = getUsers();
+    if(users.find(x=>x.username.toLowerCase()===u.toLowerCase())){alert('username already exists');return}
+    const user = {id:Date.now(),username:u,password:p,balance:0};
+    users.push(user); saveUsers(users); setSession({id:user.id,username:user.username});
+    closeModal(); refreshUI(); showSection('dashboard');
+  }
+
+  window.login = function(){
+    const u = document.getElementById('li_username').value.trim();
+    const p = document.getElementById('li_password').value;
+    const users = getUsers();
+    const user = users.find(x=>x.username.toLowerCase()===u.toLowerCase() && x.password===p);
+    if(!user){alert('invalid creds');return}
+    setSession({id:user.id,username:user.username}); closeModal(); refreshUI(); showSection('dashboard');
+  }
+
+  // buy flow
+  window.openBuy = function(productId){
+    const prod = PRODUCTS.find(p=>p.id===productId);
+    const root = $('#modalRoot');
+    root.innerHTML = modalHtml(`Buy — ${prod.title}`, `
+      <div class=\"field\"><label>Quantity (${prod.unit})</label><input id=\"buy_qty\" type=\"number\" value=\"${prod.min}\" min=\"${prod.min}\" /></div>
+      <div class=\"field\"><label>Referral Link / Code</label><input id=\"buy_ref\" type=\"text\" placeholder=\"https://sosovalue.app/ref/abcd\" /></div>
+      <div class=\"field\"><label>Price</label><div id=\"buy_price\" style=\"font-weight:800\">$0.00</div></div>
+      <div style=\"margin-top:12px;display:flex;gap:8px\"><button class=\"btn\" onclick=\"confirmBuy('${prod.id}')\">Confirm Order</button><button class=\"ghost\" onclick=\"closeModal()\">Cancel</button></div>
+    `);
+
+    const qtyInput = document.getElementById('buy_qty');
+    const priceBox = document.getElementById('buy_price');
+    function compute(){
+      const q = Number(qtyInput.value)||0;
+      const price = calculatePrice(prod,q);
+      priceBox.textContent = `$${price.toFixed(2)}`;
+    }
+    qtyInput.addEventListener('input',compute);
+    compute();
+  }
+
+  // price rules
+  function calculatePrice(prod, qty){
+    if(!qty) return 0;
+    if(prod.id==='V1' || prod.id==='V2'){
+      // rounding up to nearest pricing unit (100 for V1 & V2)
+      const unit = 100;
+      if(prod.id==='V2' && prod.min<100) { /* V2 min 50, but pricing unit is 100 -> we'll round up */ }
+      const groups = Math.ceil(qty / unit);
+      return groups * (prod.pricePerUnit * unit);
+    }
+    // V0 and REBATE -> pro-rata exact
+    return qty * prod.pricePerUnit;
+  }
+
+  // confirm buy -> deduct balance & create order
+  window.confirmBuy = function(prodId){
+    const prod = PRODUCTS.find(p=>p.id===prodId);
+    const qty = Number(document.getElementById('buy_qty').value)||0;
+    const ref = document.getElementById('buy_ref').value.trim();
+    if(qty < prod.min || qty > prod.max){alert(`Quantity must be between ${prod.min.toLocaleString()} and ${prod.max.toLocaleString()}`);return}
+    if(!ref){alert('Referral link required');return}
+    const price = calculatePrice(prod,qty);
+    const session = getSession();
+    if(!session){alert('Please sign in or create an account'); return}
+    const users = getUsers();
+    const me = users.find(u=>u.id===session.id);
+    if(!me){alert('session invalid');clearSession();refreshUI();return}
+    if(me.balance < price){
+      if(confirm('Insufficient balance. Add funds now?')){ closeModal(); addBalanceFlow(); }
+      return
+    }
+
+    // deduct & save order
+    me.balance = Number((me.balance - price).toFixed(2));
+    saveUsers(users);
+    const orders = getOrders();
+    const order = {id:'ORD'+Date.now(), userId:me.id, product:prod.id, title:prod.title, qty, price, referral:ref, status:'PENDING', created:Date.now()};
+    orders.unshift(order); saveOrders(orders);
+    closeModal(); refreshUI(); alert('Order submitted — check Dashboard > Orders');
+  }
+
+  // add balance flow: ask amount -> redirect to OxaPay checkout
+  window.addBalanceFlow = function(){
+    const root = $('#modalRoot');
+    root.innerHTML = modalHtml('Add Balance', `
+      <div class=\"field\"><label>Enter USD Amount</label><input id=\"add_amount\" type=\"number\" min=\"1\" value=\"5\" /></div>
+      <div style=\"margin-top:12px;display:flex;gap:8px\"><button class=\"btn\" onclick=\"startOxaPay()\">Continue</button><button class=\"ghost\" onclick=\"closeModal()\">Cancel</button></div>
+      <div style=\"margin-top:10px;color:var(--muted);font-size:13px\">You will be redirected to OxaPay checkout to complete the payment. After payment completes your balance will be updated (webhook).</div>
+    `);
+  }
+
+  window.startOxaPay = async function(){
+    const amt = Number(document.getElementById('add_amount').value)||0;
+    if(amt < 1){alert('Minimum $1'); return}
+    const session = getSession();
+    if(!session){alert('Please login first'); return}
+    // call backend to create OxaPay session
+    // expected response: {checkout_url: 'https://oxapay.checkout/...'}
+    try{
+      const resp = await fetch('/api/create-payment', {method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({amount:amt, userId:session.id})});
+      if(resp.ok){
+        const data = await resp.json();
+        if(data.checkout_url){ window.location.href = data.checkout_url; return }
+      }
+    }catch(e){/* ignore */}
+    // fallback: open example OxaPay link (replace with real backend) 
+    const fake = `https://oxapay.example/checkout?amount=${amt}&user=${session.id}`;
+    window.location.href = fake;
+  }
+
+  // refresh UI
+  function refreshUI(){
+    const session = getSession();
+    const users = getUsers();
+    const orders = getOrders();
+    const user = session ? users.find(u=>u.id===session.id) : null;
+    document.getElementById('balanceDisplay').textContent = `$${(user?user.balance:0).toFixed(2)}`;
+    document.getElementById('dashBalance').textContent = `$${(user?user.balance:0).toFixed(2)}`;
+    document.getElementById('userWelcome').textContent = session?session.username:'Guest';
+
+    // orders table
+    const tbody = document.querySelector('#ordersTable tbody'); tbody.innerHTML='';
+    orders.filter(o=>!session || o.userId===session.id).forEach(o=>{
+      const tr = document.createElement('tr');
+      tr.innerHTML = `<td>${o.id}</td><td>${o.product}</td><td>${o.qty.toLocaleString()}</td><td>$${o.price.toFixed(2)}</td><td>${o.status}</td>`;
+      tbody.appendChild(tr);
+    });
+
+    // nav show/hide
+    document.getElementById('nav-signin').style.display = session ? 'none' : 'inline';
+    document.getElementById('nav-signup').style.display = session ? 'none' : 'inline';
+  }
+
+  // simple router
+  window.showSection = function(id){ document.querySelectorAll('main>section').forEach(s=>s.style.display = s.id===id ? '' : 'none'); if(id==='dashboard') { refreshUI(); } }
+
+  // init
+  renderProducts();
+  setTimeout(()=>{document.getElementById('loader').style.display='none';},1400);
+  refreshUI();
+
+})();
+</script>
+</body>
+  </html>
+  
