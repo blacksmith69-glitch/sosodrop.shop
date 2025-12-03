@@ -94,6 +94,7 @@
     <a href="#dashboard" onclick="showSection('dashboard')">Dashboard</a>
     <a href="#" id="nav-signin" onclick="openModal('login')">Sign In</a>
     <a href="#" id="nav-signup" onclick="openModal('signup')">Sign Up</a>
+    <a href="#" id="nav-logout" onclick="logout()" style="display:none">Logout</a>
   </nav>
 </header>
 
@@ -123,7 +124,7 @@
 
       <aside class="card balance">
         <h4>Your Balance</h4>
-        <div style="font-size:20px;font-weight:800" id="balanceDisplay">$0.00</div>
+        <div style="font-size:20px;font-weight:800" id="balanceDisplay">Sign in to view</div>
         <div style="margin-top:10px">
           <button class="btn" onclick="addBalanceFlow()">Add Balance</button>
         </div>
@@ -178,6 +179,9 @@
 
 <script>
 (() => {
+  // ---------- CONFIG ----------
+  const API_BASE = "https://bbblacksmith.pythonanywhere.com"; // <<-- change if your backend domain differs
+
   // Products config exactly as you specified
   const PRODUCTS = [
     {id:'V0', title:'Sosovalue V0 Referral', pricePerUnit:2/1000, displayPrice:'$2 per 1,000', min:1000, max:100000000, unit:'referrals'},
@@ -186,16 +190,11 @@
     {id:'REBATE', title:'Rebate EXP', pricePerUnit:1/1000000, displayPrice:'$1 per 1,000,000', min:1000000, max:1000000000, unit:'exp'}
   ];
 
-  // localStorage keys
-  const LS_USERS = 'sv_users';
-  const LS_SESSION = 'sv_session';
-  const LS_ORDERS = 'sv_orders';
-
   // util
   const $ = sel => document.querySelector(sel);
   const $all = sel => document.querySelectorAll(sel);
 
-  // render products
+  // ---------------- UI Render ----------------
   function renderProducts(){
     const container = $('#products');
     const sidebar = $('#productsSidebar');
@@ -203,27 +202,35 @@
     sidebar.innerHTML = '';
     PRODUCTS.forEach(p=>{
       const el = document.createElement('div'); el.className='product';
-      el.innerHTML = `<h3>${p.title}</h3><div class="meta">${p.displayPrice}</div><div class="meta">Min: ${p.min.toLocaleString()} • Max: ${p.max.toLocaleString()}</div><div class="price">Price calc on input</div><button class="btn" onclick="openBuy('${p.id}')">Buy</button>`;
+      el.innerHTML = `
+        <h3>${p.title}</h3>
+        <div class="meta">${p.displayPrice}</div>
+        <div class="meta">Min: ${p.min.toLocaleString()} • Max: ${p.max.toLocaleString()}</div>
+        <div class="price muted">Click buy to calculate price</div>
+        <button class="btn" onclick="openBuy('${p.id}')">Buy</button>
+      `;
       container.appendChild(el);
 
-      const el2 = el.cloneNode(true);
-      el2.querySelector('button').onclick = ()=>openBuy(p.id);
+      const el2 = document.createElement('div');
+      el2.className = 'product';
+      el2.innerHTML = `
+        <h3>${p.title}</h3>
+        <div class="meta">${p.displayPrice}</div>
+        <div class="meta">Min: ${p.min.toLocaleString()} • Max: ${p.max.toLocaleString()}</div>
+        <div class="price muted">Click buy to calculate price</div>
+        <button class="btn">Buy</button>
+      `;
+      el2.querySelector("button").onclick = () => openBuy(p.id);
       sidebar.appendChild(el2);
     });
   }
 
-  // simple client auth using localStorage (no backend)
-  function getUsers(){return JSON.parse(localStorage.getItem(LS_USERS)||'[]')}
-  function saveUsers(u){localStorage.setItem(LS_USERS, JSON.stringify(u))}
-  function getSession(){return JSON.parse(localStorage.getItem(LS_SESSION)||'null')}
-  function setSession(obj){localStorage.setItem(LS_SESSION, JSON.stringify(obj))}
-  function clearSession(){localStorage.removeItem(LS_SESSION)}
+  // ---------------- Auth helpers ----------------
+  function getSession(){ return JSON.parse(localStorage.getItem('sv_session') || 'null'); }
+  function saveSession(sess){ localStorage.setItem('sv_session', JSON.stringify(sess)); }
+  function clearSession(){ localStorage.removeItem('sv_session'); }
 
-  // orders store
-  function getOrders(){return JSON.parse(localStorage.getItem(LS_ORDERS)||'[]')}
-  function saveOrders(list){localStorage.setItem(LS_ORDERS, JSON.stringify(list))}
-
-  // signup/login UI
+  // ---------------- Modals ----------------
   function openModal(type){
     const root = $('#modalRoot');
     if(type==='signup'){
@@ -240,49 +247,89 @@
         <div style="margin-top:12px;display:flex;gap:8px"><button onclick="login()" class="btn">Sign In</button><button onclick="closeModal()" class="ghost">Cancel</button></div>
       `);
     } else if(type==='buy'){
-      /* handled separately */
+      // handled in openBuy
     }
   }
 
   function modalHtml(title, inner){
-    return `<div class="modal-backdrop"><div class="modal"><h3 style=\"margin:0 0 8px 0\">${title}</h3>${inner}</div></div>`;
+    return `<div class="modal-backdrop"><div class="modal"><h3 style="margin:0 0 8px 0">${title}</h3>${inner}</div></div>`;
   }
 
-  window.openModal = openModal; // expose for header
-  window.closeModal = ()=>{document.getElementById('modalRoot').innerHTML=''};
+  window.openModal = openModal;
+  window.closeModal = ()=>{ document.getElementById('modalRoot').innerHTML = '' };
 
-  // signup/login logic
-  window.signup = function(){
+  // ---------------- Auth API ----------------
+  window.signup = async function(){
     const u = document.getElementById('su_username').value.trim();
     const p = document.getElementById('su_password').value;
     const c = document.getElementById('su_confirm').value;
-    if(!u || !p){alert('username & password required');return}
-    if(p!==c){alert('passwords do not match');return}
-    const users = getUsers();
-    if(users.find(x=>x.username.toLowerCase()===u.toLowerCase())){alert('username already exists');return}
-    const user = {id:Date.now(),username:u,password:p,balance:0};
-    users.push(user); saveUsers(users); setSession({id:user.id,username:user.username});
-    closeModal(); refreshUI(); showSection('dashboard');
+    if(!u || !p){ alert('username & password required'); return; }
+    if(p !== c){ alert('passwords do not match'); return; }
+
+    try{
+      const res = await fetch(`${API_BASE}/register`, {
+        method: 'POST',
+        headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({username:u, password:p})
+      });
+      const data = await res.json();
+      if(res.ok){
+        // auto-login: call /login
+        const loginRes = await fetch(`${API_BASE}/login`, {
+          method: 'POST',
+          headers: {'Content-Type':'application/json'},
+          body: JSON.stringify({username:u, password:p})
+        });
+        const loginData = await loginRes.json();
+        if(loginRes.ok){
+          saveSession({ user_id: loginData.user_id, token: loginData.token, username: u });
+          closeModal(); refreshUI(); showSection('dashboard');
+        } else {
+          alert(loginData.error || 'Login after signup failed');
+        }
+      } else {
+        alert(data.error || 'Signup failed');
+      }
+    }catch(e){
+      alert('Network error. Please try again.');
+    }
   }
 
-  window.login = function(){
+  window.login = async function(){
     const u = document.getElementById('li_username').value.trim();
     const p = document.getElementById('li_password').value;
-    const users = getUsers();
-    const user = users.find(x=>x.username.toLowerCase()===u.toLowerCase() && x.password===p);
-    if(!user){alert('invalid creds');return}
-    setSession({id:user.id,username:user.username}); closeModal(); refreshUI(); showSection('dashboard');
+    if(!u || !p){ alert('username & password required'); return; }
+    try{
+      const res = await fetch(`${API_BASE}/login`, {
+        method: 'POST',
+        headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({username:u, password:p})
+      });
+      const data = await res.json();
+      if(res.ok){
+        saveSession({ user_id: data.user_id, token: data.token, username: u });
+        closeModal(); refreshUI(); showSection('dashboard');
+      } else {
+        alert(data.error || 'Invalid credentials');
+      }
+    }catch(e){
+      alert('Network error. Please try again.');
+    }
   }
 
-  // buy flow
+  window.logout = function(){
+    clearSession(); refreshUI(); showSection('home');
+  }
+
+  // ---------------- Buy flow ----------------
   window.openBuy = function(productId){
     const prod = PRODUCTS.find(p=>p.id===productId);
     const root = $('#modalRoot');
     root.innerHTML = modalHtml(`Buy — ${prod.title}`, `
-      <div class=\"field\"><label>Quantity (${prod.unit})</label><input id=\"buy_qty\" type=\"number\" value=\"${prod.min}\" min=\"${prod.min}\" /></div>
-      <div class=\"field\"><label>Referral Link / Code</label><input id=\"buy_ref\" type=\"text\" placeholder=\"https://sosovalue.app/ref/abcd\" /></div>
-      <div class=\"field\"><label>Price</label><div id=\"buy_price\" style=\"font-weight:800\">$0.00</div></div>
-      <div style=\"margin-top:12px;display:flex;gap:8px\"><button class=\"btn\" onclick=\"confirmBuy('${prod.id}')\">Confirm Order</button><button class=\"ghost\" onclick=\"closeModal()\">Cancel</button></div>
+      <div class="field"><label>Quantity (${prod.unit})</label><input id="buy_qty" type="number" value="${prod.min}" min="${prod.min}" /></div>
+      <div class="field"><label>Referral Link / Code</label><input id="buy_ref" type="text" placeholder="https://sosovalue.app/ref/abcd" /></div>
+      <div class="field"><label>Price</label><div id="buy_price" style="font-weight:800">$0.00</div></div>
+      <div style="margin-top:12px;display:flex;gap:8px"><button class="btn" onclick="confirmBuy('${prod.id}')">Confirm Order</button><button class="ghost" onclick="closeModal()">Cancel</button></div>
     `);
 
     const qtyInput = document.getElementById('buy_qty');
@@ -300,105 +347,127 @@
   function calculatePrice(prod, qty){
     if(!qty) return 0;
     if(prod.id==='V1' || prod.id==='V2'){
-      // rounding up to nearest pricing unit (100 for V1 & V2)
       const unit = 100;
-      if(prod.id==='V2' && prod.min<100) { /* V2 min 50, but pricing unit is 100 -> we'll round up */ }
       const groups = Math.ceil(qty / unit);
       return groups * (prod.pricePerUnit * unit);
     }
-    // V0 and REBATE -> pro-rata exact
     return qty * prod.pricePerUnit;
   }
 
-  // confirm buy -> deduct balance & create order
-  window.confirmBuy = function(prodId){
+  // create order -> tries backend, falls back to local save
+  window.confirmBuy = async function(prodId){
     const prod = PRODUCTS.find(p=>p.id===prodId);
     const qty = Number(document.getElementById('buy_qty').value)||0;
     const ref = document.getElementById('buy_ref').value.trim();
-    if(qty < prod.min || qty > prod.max){alert(`Quantity must be between ${prod.min.toLocaleString()} and ${prod.max.toLocaleString()}`);return}
-    if(!ref){alert('Referral link required');return}
+    if(qty < prod.min || qty > prod.max){ alert(`Quantity must be between ${prod.min.toLocaleString()} and ${prod.max.toLocaleString()}`); return; }
+    if(!ref){ alert('Referral link required'); return; }
     const price = calculatePrice(prod,qty);
     const session = getSession();
-    if(!session){alert('Please sign in or create an account'); return}
-    const users = getUsers();
-    const me = users.find(u=>u.id===session.id);
-    if(!me){alert('session invalid');clearSession();refreshUI();return}
-    if(me.balance < price){
-      if(confirm('Insufficient balance. Add funds now?')){ closeModal(); addBalanceFlow(); }
-      return
+    if(!session){ alert('Please sign in or create an account'); return; }
+
+    try{
+      // Try server-side order creation (backend must implement /create-order)
+      const res = await fetch(`${API_BASE}/create-order`, {
+        method: 'POST',
+        headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({
+          user_id: session.user_id,
+          product: prod.id,
+          qty,
+          price,
+          referral: ref
+        })
+      });
+      if(res.ok){
+        // server will store and deduct balance; refresh UI
+        closeModal(); await refreshUI(); alert('Order submitted — check Dashboard > Orders');
+        return;
+      }
+    }catch(e){
+      // network error -> fallback to local
     }
 
-    // deduct & save order
-    me.balance = Number((me.balance - price).toFixed(2));
-    saveUsers(users);
-    const orders = getOrders();
-    const order = {id:'ORD'+Date.now(), userId:me.id, product:prod.id, title:prod.title, qty, price, referral:ref, status:'PENDING', created:Date.now()};
-    orders.unshift(order); saveOrders(orders);
-    closeModal(); refreshUI(); alert('Order submitted — check Dashboard > Orders');
+    // FALLBACK: if backend doesn't support create-order, store locally and deduct balance locally
+    // (This fallback ensures UI doesn't break — recommended to implement /create-order server-side)
+    const usersRaw = JSON.parse(localStorage.getItem('sv_users') || '[]');
+    let userLocal = usersRaw.find(u=>u.id === session.user_id);
+    if(!userLocal){
+      // try to fetch from server
+      await refreshUI();
+      userLocal = JSON.parse(localStorage.getItem('sv_users') || '[]').find(u=>u.id === session.user_id);
+      if(!userLocal){ alert('Session invalid. Please login again.'); logout(); return; }
+    }
+    if(userLocal.balance < price){ if(confirm('Insufficient balance. Add funds now?')){ closeModal(); addBalanceFlow(); } return; }
+    userLocal.balance = Number((userLocal.balance - price).toFixed(2));
+    localStorage.setItem('sv_users', JSON.stringify(usersRaw));
+    // save order locally
+    const orders = JSON.parse(localStorage.getItem('sv_orders') || '[]');
+    const order = {id:'ORD'+Date.now(), userId:userLocal.id, product:prod.id, title:prod.title, qty, price, referral:ref, status:'PENDING', created:Date.now()};
+    orders.unshift(order);
+    localStorage.setItem('sv_orders', JSON.stringify(orders));
+    closeModal(); refreshUI(); alert('Order submitted (local fallback) — check Dashboard > Orders');
   }
 
-  // add balance flow: ask amount -> redirect to OxaPay checkout
+  // ---------------- Add Balance (OxaPay) ----------------
   window.addBalanceFlow = function(){
     const root = $('#modalRoot');
     root.innerHTML = modalHtml('Add Balance', `
-      <div class=\"field\"><label>Enter USD Amount</label><input id=\"add_amount\" type=\"number\" min=\"1\" value=\"5\" /></div>
-      <div style=\"margin-top:12px;display:flex;gap:8px\"><button class=\"btn\" onclick=\"startOxaPay()\">Continue</button><button class=\"ghost\" onclick=\"closeModal()\">Cancel</button></div>
-      <div style=\"margin-top:10px;color:var(--muted);font-size:13px\">You will be redirected to OxaPay checkout to complete the payment. After payment completes your balance will be updated (webhook).</div>
+      <div class="field"><label>Enter USD Amount</label><input id="add_amount" type="number" min="1" value="5" /></div>
+      <div style="margin-top:12px;display:flex;gap:8px"><button class="btn" onclick="startOxaPay()">Continue</button><button class="ghost" onclick="closeModal()">Cancel</button></div>
+      <div style="margin-top:10px;color:var(--muted);font-size:13px">You will be redirected to OxaPay checkout to complete the payment. After payment completes your balance will be updated (webhook).</div>
     `);
   }
 
   window.startOxaPay = async function(){
     const amt = Number(document.getElementById('add_amount').value)||0;
-    if(amt < 1){alert('Minimum $1'); return}
+    if(amt < 1){ alert('Minimum $1'); return }
     const session = getSession();
-    if(!session){alert('Please login first'); return}
-    // call backend to create OxaPay session
-    // expected response: {checkout_url: 'https://oxapay.checkout/...'}
+    if(!session){ alert('Please login first'); return }
+
     try{
-      const resp = await fetch('/api/create-payment', {method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({amount:amt, userId:session.id})});
-      if(resp.ok){
-        const data = await resp.json();
-        if(data.checkout_url){ window.location.href = data.checkout_url; return }
+      const resp = await fetch(`${API_BASE}/create-payment`, {
+        method: 'POST',
+        headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({ amount: amt, user_id: session.user_id })
+      });
+      const data = await resp.json();
+      // backend returns either {payment_link: "..."} or {checkout_url: "..."}
+      const url = data.payment_link || data.checkout_url || data.checkoutUrl || data.checkout_url;
+      if(url){
+        // redirect user to OxaPay checkout
+        window.location.href = url;
+        return;
+      } else {
+        alert('Failed to create payment link. Try again later.');
       }
-    }catch(e){/* ignore */}
-    // fallback: open example OxaPay link (replace with real backend) 
-    const fake = `https://oxapay.example/checkout?amount=${amt}&user=${session.id}`;
-    window.location.href = fake;
+    }catch(e){
+      alert('Network error creating payment. Try again later.');
+    }
   }
 
-  // refresh UI
-  function refreshUI(){
+  // ---------------- Dashboard & UI Refresh ----------------
+  async function fetchDashboard(){
     const session = getSession();
-    const users = getUsers();
-    const orders = getOrders();
-    const user = session ? users.find(u=>u.id===session.id) : null;
-    document.getElementById('balanceDisplay').textContent = `$${(user?user.balance:0).toFixed(2)}`;
-    document.getElementById('dashBalance').textContent = `$${(user?user.balance:0).toFixed(2)}`;
-    document.getElementById('userWelcome').textContent = session?session.username:'Guest';
-
-    // orders table
-    const tbody = document.querySelector('#ordersTable tbody'); tbody.innerHTML='';
-    orders.filter(o=>!session || o.userId===session.id).forEach(o=>{
-      const tr = document.createElement('tr');
-      tr.innerHTML = `<td>${o.id}</td><td>${o.product}</td><td>${o.qty.toLocaleString()}</td><td>$${o.price.toFixed(2)}</td><td>${o.status}</td>`;
-      tbody.appendChild(tr);
-    });
-
-    // nav show/hide
-    document.getElementById('nav-signin').style.display = session ? 'none' : 'inline';
-    document.getElementById('nav-signup').style.display = session ? 'none' : 'inline';
+    if(!session) return null;
+    try{
+      const res = await fetch(`${API_BASE}/dashboard/${session.user_id}`);
+      if(!res.ok) return null;
+      const data = await res.json();
+      return data;
+    }catch(e){
+      return null;
+    }
   }
 
-  // simple router
-  window.showSection = function(id){ document.querySelectorAll('main>section').forEach(s=>s.style.display = s.id===id ? '' : 'none'); if(id==='dashboard') { refreshUI(); } }
+  async function refreshUI(){
+    // fetch dashboard from server; if fails, use local fallback
+    const session = getSession();
+    let serverData = null;
+    if(session){
+      serverData = await fetchDashboard();
+    }
 
-  // init
-  renderProducts();
-  setTimeout(()=>{document.getElementById('loader').style.display='none';},1400);
-  refreshUI();
-
-})();
-</script>
-</body>
-  </html>
-  
+    if(serverData){
+      // update UI from server
+      document.getElementById('balanceDisplay').textContent = `$${Number(serverData.balance || 0).toFixed(2)}`;
+      document.getElementById('dashBalance').textContent = `$${Number(serverData.balance || 0).toFixed(
