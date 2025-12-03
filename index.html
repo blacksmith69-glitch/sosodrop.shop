@@ -178,8 +178,6 @@
 
 <script>
 (() => {
-  const API = 'https://YOUR-PYTHONANYWHERE-URL'; // <-- replace with your backend URL
-
   const PRODUCTS = [
     {id:'V0', title:'Sosovalue V0 Referral', pricePerUnit:2/1000, displayPrice:'$2 per 1,000', min:1000, max:100000000, unit:'referrals'},
     {id:'V1', title:'Sosovalue V1 Referral', pricePerUnit:10/100, displayPrice:'$10 per 100', min:100, max:10000000, unit:'referrals'},
@@ -188,27 +186,26 @@
   ];
 
   const $ = sel => document.querySelector(sel);
-  const $all = sel => document.querySelectorAll(sel);
 
+  // render products
   function renderProducts(){
     const container = $('#products');
     const sidebar = $('#productsSidebar');
-    container.innerHTML = ''; sidebar.innerHTML = '';
+    container.innerHTML = '';
+    sidebar.innerHTML = '';
     PRODUCTS.forEach(p=>{
       const el = document.createElement('div'); el.className='product';
-      el.innerHTML = `<h3>${p.title}</h3><div class="meta">${p.displayPrice}</div><div class="meta">Min: ${p.min.toLocaleString()} • Max: ${p.max.toLocaleString()}</div><div class="price">Price calc on input</div><button class="btn" onclick="openBuy('${p.id}')">Buy</button>`;
+      el.innerHTML = `<h3>${p.title}</h3><div class="meta">${p.displayPrice}</div><div class="meta">Min: ${p.min.toLocaleString()} • Max: ${p.max.toLocaleString()}</div><button class="btn" onclick="openBuy('${p.id}')">Buy</button>`;
       container.appendChild(el);
+
       const el2 = el.cloneNode(true);
       el2.querySelector('button').onclick = ()=>openBuy(p.id);
       sidebar.appendChild(el2);
     });
   }
 
-  function modalHtml(title, inner){
-    return `<div class="modal-backdrop"><div class="modal"><h3 style="margin:0 0 8px 0">${title}</h3>${inner}</div></div>`;
-  }
-
-  window.openModal = function(type){
+  // modals
+  function openModal(type){
     const root = $('#modalRoot');
     if(type==='signup'){
       root.innerHTML = modalHtml('Create Account', `
@@ -223,58 +220,43 @@
         <div class="field"><label>Password</label><input id="li_password" type="password" /></div>
         <div style="margin-top:12px;display:flex;gap:8px"><button onclick="login()" class="btn">Sign In</button><button onclick="closeModal()" class="ghost">Cancel</button></div>
       `);
-    } else if(type==='buy'){
-      // handled in openBuy
     }
   }
 
+  function modalHtml(title, inner){
+    return `<div class="modal-backdrop"><div class="modal"><h3 style=\"margin:0 0 8px 0\">${title}</h3>${inner}</div></div>`;
+  }
+
+  window.openModal = openModal;
   window.closeModal = ()=>{document.getElementById('modalRoot').innerHTML=''};
 
-  // --- SIGNUP ---
+  // signup/login logic
   window.signup = async function(){
-    const u = $('#su_username').value.trim();
-    const p = $('#su_password').value;
-    const c = $('#su_confirm').value;
-    if(!u || !p){alert('username & password required');return;}
-    if(p!==c){alert('passwords do not match');return;}
+    const u = document.getElementById('su_username').value.trim();
+    const p = document.getElementById('su_password').value;
+    const c = document.getElementById('su_confirm').value;
+    if(!u || !p){alert('username & password required');return}
+    if(p!==c){alert('passwords do not match');return}
     try{
-      const resp = await fetch(API+'/register',{
-        method:'POST',
-        headers:{'Content-Type':'application/json'},
-        body:JSON.stringify({username:u,password:p})
-      });
-      const data = await resp.json();
-      if(resp.ok){ alert('Signup successful, please login'); closeModal();}
-      else alert(data.error||'Signup failed');
-    }catch(e){alert('Network error'); console.error(e);}
+      const res = await fetch('/signup', {method:'POST', headers:{'content-type':'application/json'}, body:JSON.stringify({username:u,password:p})});
+      const data = await res.json();
+      if(data.token){ sessionStorage.setItem('sv_token',data.token); refreshUI(); closeModal(); showSection('dashboard'); return; }
+      alert(data.message||'Signup failed');
+    }catch(e){alert('Signup error');}
   }
 
-  // --- LOGIN ---
   window.login = async function(){
-    const u = $('#li_username').value.trim();
-    const p = $('#li_password').value;
-    if(!u || !p){alert('Enter credentials'); return;}
+    const u = document.getElementById('li_username').value.trim();
+    const p = document.getElementById('li_password').value;
     try{
-      const resp = await fetch(API+'/login',{
-        method:'POST',
-        headers:{'Content-Type':'application/json'},
-        body:JSON.stringify({username:u,password:p})
-      });
-      const data = await resp.json();
-      if(resp.ok){
-        setSession({token:data.token,user_id:data.user_id,username:u,balance:data.balance});
-        closeModal(); refreshUI(); showSection('dashboard');
-      } else { alert(data.error || 'Login failed'); }
-    }catch(e){alert('Network error'); console.error(e);}
+      const res = await fetch('/login', {method:'POST', headers:{'content-type':'application/json'}, body:JSON.stringify({username:u,password:p})});
+      const data = await res.json();
+      if(data.token){ sessionStorage.setItem('sv_token',data.token); refreshUI(); closeModal(); showSection('dashboard'); return; }
+      alert(data.message||'Login failed');
+    }catch(e){alert('Login error');}
   }
 
-  // --- SESSION STORAGE ---
-  const LS_SESSION = 'sv_session';
-  window.setSession = obj => localStorage.setItem(LS_SESSION, JSON.stringify(obj));
-  window.getSession = ()=>JSON.parse(localStorage.getItem(LS_SESSION)||'null');
-  window.clearSession = ()=>localStorage.removeItem(LS_SESSION);
-
-  // --- BUY FLOW ---
+  // buy flow
   window.openBuy = function(productId){
     const prod = PRODUCTS.find(p=>p.id===productId);
     const root = $('#modalRoot');
@@ -284,41 +266,103 @@
       <div class="field"><label>Price</label><div id="buy_price" style="font-weight:800">$0.00</div></div>
       <div style="margin-top:12px;display:flex;gap:8px"><button class="btn" onclick="confirmBuy('${prod.id}')">Confirm Order</button><button class="ghost" onclick="closeModal()">Cancel</button></div>
     `);
-
-    const qtyInput = $('#buy_qty');
-    const priceBox = $('#buy_price');
-    function compute(){ priceBox.textContent = '$'+calculatePrice(prod,Number(qtyInput.value)).toFixed(2);}
+    const qtyInput = document.getElementById('buy_qty');
+    const priceBox = document.getElementById('buy_price');
+    function compute(){priceBox.textContent=`$${(qtyInput.value*prod.pricePerUnit).toFixed(2)}`;}
     qtyInput.addEventListener('input',compute); compute();
-  }
-
-  function calculatePrice(prod, qty){
-    if(!qty) return 0;
-    if(prod.id==='V1'||prod.id==='V2'){
-      const unit=100;
-      const groups=Math.ceil(qty/unit);
-      return groups*(prod.pricePerUnit*unit);
-    }
-    return qty*prod.pricePerUnit;
   }
 
   window.confirmBuy = async function(prodId){
     const prod = PRODUCTS.find(p=>p.id===prodId);
-    const qty = Number($('#buy_qty').value)||0;
-    const ref = $('#buy_ref').value.trim();
-    const session = getSession();
-    if(!session){alert('Please login'); return;}
-    if(qty<prod.min || qty>prod.max){alert(`Quantity must be between ${prod.min} and ${prod.max}`); return;}
-    if(!ref){alert('Referral link required'); return;}
-
-    // Create order API call (for now, we simulate locally)
-    alert('Order submitted — check Dashboard. (Order creation still local in this demo)');
-    closeModal();
+    const qty = Number(document.getElementById('buy_qty').value)||0;
+    const ref = document.getElementById('buy_ref').value.trim();
+    if(!ref){alert('Referral link required');return;}
+    try{
+      const token = sessionStorage.getItem('sv_token');
+      const res = await fetch('/create-payment',{method:'POST', headers:{'content-type':'application/json','Authorization':`Bearer ${token}`}, body:JSON.stringify({amount:qty*prod.pricePerUnit, product:prodId, qty})});
+      const data = await res.json();
+      if(data.payment_url){ window.location.href = data.payment_url; return; }
+      alert(data.message||'Order failed');
+    }catch(e){alert('Order error');}
   }
 
-  // --- ADD BALANCE ---
+  // balance flow
   window.addBalanceFlow = function(){
     const root = $('#modalRoot');
     root.innerHTML = modalHtml('Add Balance', `
       <div class="field"><label>Enter USD Amount</label><input id="add_amount" type="number" min="1" value="5" /></div>
       <div style="margin-top:12px;display:flex;gap:8px"><button class="btn" onclick="startOxaPay()">Continue</button><button class="ghost" onclick="closeModal()">Cancel</button></div>
-      <div style="
+      <div style="margin-top:10px;color:var(--muted);font-size:13px">You will be redirected to OxaPay checkout to complete the payment. After payment completes your balance will be updated (webhook).</div>
+    `);
+  }
+
+  window.startOxaPay = async function(){
+    const amt = Number(document.getElementById('add_amount').value)||0;
+    if(amt<1){alert('Minimum $1');return;}
+    const token = sessionStorage.getItem('sv_token');
+try{
+      const res = await fetch('/create-payment', {
+        method:'POST',
+        headers:{'content-type':'application/json','Authorization':`Bearer ${token}`},
+        body:JSON.stringify({amount:amt})
+      });
+      const data = await res.json();
+      if(data.payment_url){ window.location.href = data.payment_url; return; }
+      alert(data.message||'Payment creation failed');
+    }catch(e){alert('Payment error');}
+  }
+
+  // refresh UI after login/signup
+  function refreshUI(){
+    const token = sessionStorage.getItem('sv_token');
+    if(token){
+      $('#nav-signin').style.display='none';
+      $('#nav-signup').style.display='none';
+      showSection('dashboard');
+      loadDashboard();
+    }else{
+      $('#nav-signin').style.display='inline-block';
+      $('#nav-signup').style.display='inline-block';
+      showSection('home');
+    }
+  }
+
+  // load dashboard data
+  async function loadDashboard(){
+    const token = sessionStorage.getItem('sv_token');
+    if(!token)return;
+    try{
+      const res = await fetch('/dashboard', {headers:{'Authorization':`Bearer ${token}`}});
+      const data = await res.json();
+      $('#userWelcome').textContent = data.username||'User';
+      $('#dashBalance').textContent = `$${(data.balance||0).toFixed(2)}`;
+      $('#balanceDisplay').textContent = `$${(data.balance||0).toFixed(2)}`;
+      const tbody = document.querySelector('#ordersTable tbody');
+      tbody.innerHTML = '';
+      (data.orders||[]).forEach(o=>{
+        const tr = document.createElement('tr');
+        tr.innerHTML=`<td>${o.id}</td><td>${o.product}</td><td>${o.qty}</td><td>$${o.price.toFixed(2)}</td><td>${o.status}</td>`;
+        tbody.appendChild(tr);
+      });
+    }catch(e){console.log('Dashboard load error',e);}
+  }
+
+  // section switch
+  window.showSection = function(id){
+    document.querySelectorAll('main section').forEach(s=>s.style.display='none');
+    const sec = document.getElementById(id);
+    if(sec) sec.style.display='block';
+  }
+
+  // initial load
+  window.addEventListener('load',()=>{
+    renderProducts();
+    refreshUI();
+    setTimeout(()=>{document.getElementById('loader').style.display='none'},500);
+  });
+
+})();
+</script>
+
+</body>
+</html>
