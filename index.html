@@ -187,12 +187,12 @@
 
   const $ = sel => document.querySelector(sel);
 
-  // Render products
+  // Render products (keeps original look)
   function renderProducts(){
     const container = $('#products');
     const sidebar = $('#productsSidebar');
     container.innerHTML = '';
-    sidebar.innerHTML = '';
+    sidebar && (sidebar.innerHTML = '');
     PRODUCTS.forEach(p=>{
       const el = document.createElement('div'); el.className='product';
       el.innerHTML = `<h3>${p.title}</h3>
@@ -201,13 +201,18 @@
         <button class="btn" onclick="openBuy('${p.id}')">Buy</button>`;
       container.appendChild(el);
 
-      const el2 = el.cloneNode(true);
-      el2.querySelector('button').onclick = ()=>openBuy(p.id);
-      sidebar.appendChild(el2);
+      if(sidebar){
+        const el2 = el.cloneNode(true);
+        el2.querySelector('button').onclick = ()=>openBuy(p.id);
+        sidebar.appendChild(el2);
+      }
     });
   }
 
-  // Modal
+  // Modal helpers
+  function modalHtml(title, inner){
+    return `<div class="modal-backdrop"><div class="modal"><h3 style="margin:0 0 8px 0">${title}</h3>${inner}</div></div>`;
+  }
   function openModal(type){
     const root = $('#modalRoot');
     if(type==='signup'){
@@ -231,13 +236,19 @@
       `);
     }
   }
-
-  function modalHtml(title, inner){
-    return `<div class="modal-backdrop"><div class="modal"><h3 style="margin:0 0 8px 0">${title}</h3>${inner}</div></div>`;
-  }
-
   window.openModal = openModal;
-  window.closeModal = ()=>{document.getElementById('modalRoot').innerHTML=''};
+  window.closeModal = ()=>{document.getElementById('modalRoot').innerHTML='';};
+
+  // ---------- Helpers for nicer error reporting ----------
+  async function parseResponseBody(res){
+    const text = await res.text().catch(()=>null);
+    try{ return JSON.parse(text); } catch(e){ return text || null; }
+  }
+  function showDetailedError(action, resBody, status){
+    console.error(`${action} failed. status=${status}`, resBody);
+    const msg = (resBody && (resBody.error || resBody.message)) || (typeof resBody === 'string' ? resBody : null);
+    alert(`${action} failed${status?` (status ${status})`:''}${msg?': '+msg:''}. See console for details.`);
+  }
 
   // ---------------- SIGNUP ----------------
   window.signup = async function(){
@@ -253,12 +264,42 @@
         headers:{'Content-Type':'application/json'},
         body:JSON.stringify({username:u,password:p})
       });
-      const data = await res.json();
+      const body = await parseResponseBody(res);
       if(res.ok){
-        alert('Signup successful! Please login.');
-        closeModal();
-      } else alert(data.error||'Signup failed');
-    } catch(e){alert('Signup error'); console.error(e);}
+        // Auto-login after successful register so user doesn't have to click login
+        try {
+          const loginRes = await fetch('/login', {
+            method:'POST',
+            headers:{'Content-Type':'application/json'},
+            body:JSON.stringify({username:u,password:p})
+          });
+          const loginBody = await parseResponseBody(loginRes);
+          if(loginRes.ok && loginBody.user_id){
+            sessionStorage.setItem('sv_user_id', loginBody.user_id);
+            sessionStorage.setItem('sv_username', u);
+            sessionStorage.setItem('sv_balance', loginBody.balance || 0);
+            refreshUI();
+            closeModal();
+            alert('Signup + login successful.');
+            return;
+          } else {
+            // registration ok but login failed (show details)
+            showDetailedError('Auto-login after signup', loginBody, loginRes.status);
+            return;
+          }
+        } catch (le){
+          console.error('Auto-login error', le);
+          alert('Signup succeeded but auto-login failed — please login manually. See console.');
+          closeModal();
+          return;
+        }
+      } else {
+        showDetailedError('Signup', body, res.status);
+      }
+    } catch(e){
+      console.error('Signup network/error', e);
+      alert('Signup network error — check console.');
+    }
   }
 
   // ---------------- LOGIN ----------------
@@ -273,14 +314,21 @@
         headers:{'Content-Type':'application/json'},
         body:JSON.stringify({username:u,password:p})
       });
-      const data = await res.json();
-      if(res.ok && data.user_id){
-        sessionStorage.setItem('sv_user_id', data.user_id);
-        sessionStorage.setItem('sv_balance', data.balance);
+      const body = await parseResponseBody(res);
+      if(res.ok && body.user_id){
+        sessionStorage.setItem('sv_user_id', body.user_id);
+        sessionStorage.setItem('sv_username', u);
+        sessionStorage.setItem('sv_balance', body.balance || 0);
         refreshUI();
         closeModal();
-      } else alert(data.error||'Login failed');
-    } catch(e){alert('Login error'); console.error(e);}
+        alert('Login successful.');
+      } else {
+        showDetailedError('Login', body, res.status);
+      }
+    } catch(e){
+      console.error('Login network/error', e);
+      alert('Login network error — check console.');
+    }
   }
 
   // ---------------- DASHBOARD ----------------
@@ -290,19 +338,35 @@
 
     try{
       const res = await fetch(`/dashboard/${userId}`);
-      const data = await res.json();
-      $('#userWelcome').textContent = data.username||'User';
-      $('#dashBalance').textContent = `$${(data.balance||0).toFixed(2)}`;
-      $('#balanceDisplay').textContent = `$${(data.balance||0).toFixed(2)}`;
+      const body = await parseResponseBody(res);
+      if(res.ok){
+        // backend doesn't return username so use stored username
+        const username = sessionStorage.getItem('sv_username') || body.username || 'User';
+        $('#userWelcome').textContent = username;
+        // update local stored balance if backend returned it
+        if(typeof body.balance !== 'undefined'){
+          sessionStorage.setItem('sv_balance', body.balance);
+        }
+        const bal = Number(sessionStorage.getItem('sv_balance') || 0);
+        $('#dashBalance').textContent = `$${(bal||0).toFixed(2)}`;
+        $('#balanceDisplay').textContent = `$${(bal||0).toFixed(2)}`;
 
-      const tbody = $('#ordersTable tbody');
-      tbody.innerHTML = '';
-      (data.orders||[]).forEach(o=>{
-        const tr = document.createElement('tr');
-        tr.innerHTML=`<td>${o.id}</td><td>${o.product}</td><td>${o.qty}</td><td>$${(o.amount||0).toFixed(2)}</td><td>${o.status}</td>`;
-        tbody.appendChild(tr);
-      });
-    } catch(e){console.error('Dashboard load error', e);}
+        const tbody = $('#ordersTable tbody');
+        tbody.innerHTML = '';
+        (body.orders || []).forEach(o=>{
+          const tr = document.createElement('tr');
+          // Some rows use 'amount' some 'price' -> safe-print
+          const price = (o.amount !== undefined) ? o.amount : (o.price !== undefined ? o.price : 0);
+          tr.innerHTML=`<td>${o.id}</td><td>${o.product || ''}</td><td>${o.qty || ''}</td><td>$${(Number(price)||0).toFixed(2)}</td><td>${o.status || ''}</td>`;
+          tbody.appendChild(tr);
+        });
+      } else {
+        showDetailedError('Load dashboard', body, res.status);
+      }
+    } catch(e){
+      console.error('Dashboard load error', e);
+      alert('Could not load dashboard — network error. Check console.');
+    }
   }
 
   // ---------------- BUY FLOW ----------------
@@ -321,7 +385,13 @@
 
     const qtyInput = $('#buy_qty');
     const priceBox = $('#buy_price');
-    function compute(){ priceBox.textContent=`$${(qtyInput.value*prod.pricePerUnit).toFixed(2)}`; }
+    function compute(){
+      const q = Number(qtyInput.value) || 0;
+      // use same price rules as backend expects: we send exact price field as 'price'
+      let price = q * prod.pricePerUnit;
+      // for V1/V2 rounding to unit logic if you want — currently using pro-rata (keeps parity with earlier simple calculation)
+      priceBox.textContent = `$${price.toFixed(2)}`;
+    }
     qtyInput.addEventListener('input',compute);
     compute();
   }
@@ -330,26 +400,38 @@
     const prod = PRODUCTS.find(p=>p.id===prodId);
     const qty = Number($('#buy_qty').value)||0;
     const ref = $('#buy_ref').value.trim();
+    if(qty < prod.min || qty > prod.max){ alert(`Quantity must be between ${prod.min.toLocaleString()} and ${prod.max.toLocaleString()}`); return; }
     if(!ref){alert('Referral link required'); return;}
 
     const userId = sessionStorage.getItem('sv_user_id');
-    if(!userId){alert('Please login'); return;}
+    if(!userId){ alert('Please login'); return; }
 
-    const price = qty*prod.pricePerUnit;
+    const price = Number((qty * prod.pricePerUnit).toFixed(2));
     try{
       const res = await fetch('/place-order', {
         method:'POST',
         headers:{'Content-Type':'application/json'},
         body:JSON.stringify({user_id:userId, product:prod.title, qty, price})
       });
-      const data = await res.json();
-      if(data.success){
+      const body = await parseResponseBody(res);
+      if(res.ok && body.success){
+        // update stored balance if backend returned it
+        if(typeof body.new_balance !== 'undefined'){
+          sessionStorage.setItem('sv_balance', body.new_balance);
+        } else {
+          // If backend didn't return new_balance, try to reload dashboard to fetch current.
+          await loadDashboard();
+        }
         alert('Order placed successfully!');
-        sessionStorage.setItem('sv_balance', data.new_balance);
         refreshUI();
         closeModal();
-      } else alert(data.error||'Order failed');
-    } catch(e){alert('Order error'); console.error(e);}
+      } else {
+        showDetailedError('Place order', body, res.status);
+      }
+    } catch(e){
+      console.error('Order error', e);
+      alert('Order network/error — check console.');
+    }
   }
 
   // ---------------- BALANCE ----------------
@@ -362,7 +444,7 @@
         <button class="ghost" onclick="closeModal()">Cancel</button>
       </div>
       <div style="margin-top:10px;color:var(--muted);font-size:13px">
-        You will be redirected to OxaPay checkout to complete the payment. After payment completes your balance will be updated.
+        You will be redirected to OxaPay checkout to complete the payment. After payment completes your balance will be updated via webhook.
       </div>
     `);
   }
@@ -379,10 +461,16 @@
         headers:{'Content-Type':'application/json'},
         body:JSON.stringify({user_id:userId, amount:amt})
       });
-      const data = await res.json();
-      if(data.payment_url){ window.location.href = data.payment_url; }
-      else alert(data.warning || 'Payment creation failed');
-    } catch(e){alert('Payment error'); console.error(e);}
+      const body = await parseResponseBody(res);
+      if(res.ok && body.payment_url){
+        window.location.href = body.payment_url;
+      } else {
+        showDetailedError('Create payment', body, res.status);
+      }
+    } catch(e){
+      console.error('Create-payment error', e);
+      alert('Payment network/error — check console.');
+    }
   }
 
   // ---------------- REFRESH UI ----------------
@@ -414,7 +502,7 @@
   });
 
 })();
-                               </script>
+</script>
 
 </body>
 </html>
