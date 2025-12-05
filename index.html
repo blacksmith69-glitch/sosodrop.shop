@@ -152,6 +152,25 @@
         <h3 style="margin-top:18px">Products</h3>
         <div class="products" id="products"></div>
       </div>
+      <!-- REVIEWS -->
+<div style="margin-top:22px" class="card" id="reviewsSection">
+  <h3>What users say</h3>
+  <div id="reviewsList" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px;margin-top:12px">
+    <!-- reviews inserted here -->
+  </div>
+
+  <div id="leaveReviewWrap" style="margin-top:12px;display:none">
+    <div class="apple-row">
+      <label class="input-label">Your review</label>
+      <textarea id="review_text" class="apple-input" rows="3" placeholder="Share your experience (keep it short)"></textarea>
+    </div>
+    <div id="reviewError" class="error-text"></div>
+    <div style="margin-top:10px;display:flex;justify-content:flex-end;gap:8px">
+      <button class="ghost" onclick="closeReviewForm()">Cancel</button>
+      <button class="btn" onclick="submitReview()" id="submitReviewBtn">Publish review</button>
+    </div>
+  </div>
+</div>
 
       <aside class="card balance">
         <h4>Your Balance</h4>
