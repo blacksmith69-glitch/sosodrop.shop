@@ -473,8 +473,10 @@
   if(statusLabel==='pending') badge = `<span style="background:#444;padding:6px 10px;border-radius:12px">Pending</span>`;
   else if(statusLabel==='processing') badge = `<span style="background:#1f6feb;padding:6px 10px;border-radius:12px">Processing</span>`;
   else if(statusLabel==='delivering') badge = `<span style="background:#ff9f0a;color:#000;padding:6px 10px;border-radius:12px">Delivering</span>`;
-  else if(statusLabel==='delivered' || statusLabel==='completed') badge = `<span style="background:#16a34a;padding:6px 10px;border-radius:12px">Delivered</span>`;
-
+  else if(statusLabel==='delivered')
+    badge = `<span style="background:#16a34a;padding:6px 10px;border-radius:12px">Delivered</span>`;
+else if(statusLabel==='completed')
+    badge = `<span style="background:#0ea5e9;padding:6px 10px;border-radius:12px">Completed</span>`;
   tr.innerHTML=`<td>${o.id}</td><td>${o.product || ''}</td><td>${o.qty || ''}</td><td>$${(Number(price)||0).toFixed(2)}</td><td>${badge}</td>`;
   tbody.appendChild(tr);
 });
