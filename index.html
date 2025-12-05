@@ -152,25 +152,6 @@
         <h3 style="margin-top:18px">Products</h3>
         <div class="products" id="products"></div>
       </div>
-      <!-- REVIEWS -->
-<div style="margin-top:22px" class="card" id="reviewsSection">
-  <h3>What users say</h3>
-  <div id="reviewsList" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px;margin-top:12px">
-    <!-- reviews inserted here -->
-  </div>
-
-  <div id="leaveReviewWrap" style="margin-top:12px;display:none">
-    <div class="apple-row">
-      <label class="input-label">Your review</label>
-      <textarea id="review_text" class="apple-input" rows="3" placeholder="Share your experience (keep it short)"></textarea>
-    </div>
-    <div id="reviewError" class="error-text"></div>
-    <div style="margin-top:10px;display:flex;justify-content:flex-end;gap:8px">
-      <button class="ghost" onclick="closeReviewForm()">Cancel</button>
-      <button class="btn" onclick="submitReview()" id="submitReviewBtn">Publish review</button>
-    </div>
-  </div>
-</div>
 
       <aside class="card balance">
         <h4>Your Balance</h4>
@@ -484,11 +465,19 @@
         const tbody = $('#ordersTable tbody');
         tbody.innerHTML = '';
         (body.orders || []).forEach(o=>{
-          const tr = document.createElement('tr');
-          const price = (o.amount !== undefined) ? o.amount : (o.price !== undefined ? o.price : 0);
-          tr.innerHTML=`<td>${o.id}</td><td>${o.product || ''}</td><td>${o.qty || ''}</td><td>$${(Number(price)||0).toFixed(2)}</td><td>${o.status || ''}</td>`;
-          tbody.appendChild(tr);
-        });
+  const tr = document.createElement('tr');
+  const price = (o.amount !== undefined) ? o.amount : (o.price !== undefined ? o.price : 0);
+  // status badge HTML
+  let statusLabel = (o.status || '').toLowerCase();
+  let badge = `<span style="padding:6px 10px;border-radius:12px;font-weight:700;font-size:13px">`+ (o.status || '') +`</span>`;
+  if(statusLabel==='pending') badge = `<span style="background:#444;padding:6px 10px;border-radius:12px">Pending</span>`;
+  else if(statusLabel==='processing') badge = `<span style="background:#1f6feb;padding:6px 10px;border-radius:12px">Processing</span>`;
+  else if(statusLabel==='delivering') badge = `<span style="background:#ff9f0a;color:#000;padding:6px 10px;border-radius:12px">Delivering</span>`;
+  else if(statusLabel==='delivered' || statusLabel==='completed') badge = `<span style="background:#16a34a;padding:6px 10px;border-radius:12px">Delivered</span>`;
+
+  tr.innerHTML=`<td>${o.id}</td><td>${o.product || ''}</td><td>${o.qty || ''}</td><td>$${(Number(price)||0).toFixed(2)}</td><td>${badge}</td>`;
+  tbody.appendChild(tr);
+});
       } else {
         showDetailedError('Load dashboard', body, res.status);
       }
